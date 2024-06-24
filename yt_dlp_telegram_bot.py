@@ -4,7 +4,7 @@ import os
 import tempfile
 from datetime import datetime
 
-from telegram import Update
+from telegram import Update, User
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 # region environment variables
@@ -17,6 +17,7 @@ WHITELIST_FILE = os.getenv('YT_DLP_TELEGRAM_BOT_WHITELIST_FILE')
 script_basename = os.path.basename(__file__)
 basename_root = os.path.splitext(script_basename)[0]
 videos_dir = os.path.join(tempfile.gettempdir(), basename_root)
+os.makedirs(videos_dir, exist_ok=True)
 
 
 def setup_logger():
@@ -45,14 +46,33 @@ def setup_logger():
     return logger
 
 
-def download_video(url: str) -> str:
+def get_user_info(user: User):
+    return user.username, user.first_name, user.last_name
+
+
+def can_user_access(user_id: int) -> bool:
+    if WHITELIST_FILE is None:
+        return True
+    with open(WHITELIST_FILE, 'r') as f:
+        whitelist = f.read().splitlines()
+    return str(user_id) in whitelist
+
+
+def download_video(trace_id: tuple[str, int], url: str) -> str:
+    log.info(f'{trace_id} Downloading video from {url}')  # TODO: replace url with command
     return "/e/media/replies/Mike O'Hearn Original Meme Template for TikTok (What Is Love) [tRE_3jpBEo8].mp4"
 
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    trace_id = (str(update.message.date.astimezone()).split('+')[0], update.message.from_user.id)
-    log.info(f'{trace_id} {update.message.from_user.first_name} wrote {update.message.text}')
-    video_path = download_video(update.message.text)
+    user_id = update.message.from_user.id
+    trace_id = (str(update.message.date.astimezone()).split('+')[0], user_id)
+    log.info(f'{trace_id} {get_user_info(update.message.from_user)} wrote {update.message.text}')
+    if not can_user_access(user_id):
+        log.info(f'{trace_id} User not in whitelist')
+        await context.bot.send_message(chat_id=update.effective_chat.id, text='You are not allowed to use this bot')
+        return
+
+    video_path = download_video(trace_id, update.message.text)
     await context.bot.send_document(chat_id=update.effective_chat.id, document=open(video_path, 'rb'))
 
 
