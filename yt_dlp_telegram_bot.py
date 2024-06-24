@@ -59,9 +59,7 @@ def can_user_access(user_id: int) -> bool:
     return str(user_id) in whitelist
 
 
-def download_video(trace_id: tuple[str, int], url: str) -> str:
-    log.info(f'{trace_id} Downloading video from {url}')
-
+def download_video(url: str) -> str:
     ydl_hook_dict = {}
     ydl_options = {'paths': {'home': videos_dir}, "progress_hooks": [lambda x: ydl_hook_dict.update(x)]}
 
@@ -70,6 +68,7 @@ def download_video(trace_id: tuple[str, int], url: str) -> str:
         if return_code != 0:
             log.error('ydl_hook_dict: ' + str(ydl_hook_dict))
             raise Exception(f'Returned code {return_code}')
+        # https://stackoverflow.com/questions/74157935/getting-the-file-name-of-downloaded-video-using-yt-dlp
         return ydl_hook_dict['info_dict']['_filename']
 
 
@@ -86,7 +85,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return
 
     try:
-        video_path = download_video(trace_id, update.message.text)
+        video_path = download_video(update.message.text)
         await context.bot.send_document(chat_id=chat_id, document=open(video_path, 'rb'))
         log.info(f'{trace_id} Sent video {video_path}')
     except Exception as e:
