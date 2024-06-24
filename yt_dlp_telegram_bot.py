@@ -6,6 +6,7 @@ from datetime import datetime
 
 from telegram import Update, User
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
+from yt_dlp import YoutubeDL
 
 # region environment variables
 LOGS = os.getenv('LOGS')
@@ -59,21 +60,38 @@ def can_user_access(user_id: int) -> bool:
 
 
 def download_video(trace_id: tuple[str, int], url: str) -> str:
-    log.info(f'{trace_id} Downloading video from {url}')  # TODO: replace url with command
-    return "/e/media/replies/Mike O'Hearn Original Meme Template for TikTok (What Is Love) [tRE_3jpBEo8].mp4"
+    log.info(f'{trace_id} Downloading video from {url}')
+
+    ydl_hook_dict = {}
+    ydl_options = {'paths': {'home': videos_dir}, "progress_hooks": [lambda x: ydl_hook_dict.update(x)]}
+
+    with YoutubeDL(ydl_options) as ydl:
+        return_code = ydl.download(url)
+        if return_code != 0:
+            log.error('ydl_hook_dict: ' + str(ydl_hook_dict))
+            raise Exception(f'Returned code {return_code}')
+        return ydl_hook_dict['info_dict']['_filename']
 
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     trace_id = (str(update.message.date.astimezone()).split('+')[0], user_id)
+    chat_id = update.effective_chat.id
+
     log.info(f'{trace_id} {get_user_info(update.message.from_user)} wrote {update.message.text}')
+
     if not can_user_access(user_id):
         log.info(f'{trace_id} User not in whitelist')
-        await context.bot.send_message(chat_id=update.effective_chat.id, text='You are not allowed to use this bot')
+        await context.bot.send_message(chat_id=chat_id, text='You are not allowed to use this bot')
         return
 
-    video_path = download_video(trace_id, update.message.text)
-    await context.bot.send_document(chat_id=update.effective_chat.id, document=open(video_path, 'rb'))
+    try:
+        video_path = download_video(trace_id, update.message.text)
+        await context.bot.send_document(chat_id=chat_id, document=open(video_path, 'rb'))
+        log.info(f'{trace_id} Sent video {video_path}')
+    except Exception as e:
+        log.error(f'{trace_id} {e}')
+        await context.bot.send_message(chat_id=chat_id, text=f'Failed to download video {update.message.text}')
 
 
 log = setup_logger()
