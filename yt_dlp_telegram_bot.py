@@ -90,7 +90,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         log.info(f'{trace_id} Sent video {video_path}')
     except Exception as e:
         log.error(f'{trace_id} {e}')
-        await context.bot.send_message(chat_id=chat_id, text=f'Failed to download video {update.message.text}')
+        text = f'Failed to send video {update.message.text}: {e}'
+        await context.bot.send_message(chat_id=chat_id, text=text)
 
 
 log = setup_logger()
