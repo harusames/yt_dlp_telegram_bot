@@ -56,7 +56,7 @@ def can_user_access(user_id: int) -> bool:
         return True
     with open(WHITELIST_FILE, 'r') as f:
         whitelist = f.read().splitlines()
-    return str(user_id) in whitelist
+    return any(str(user_id) in line.split(',')[0] for line in whitelist)
 
 
 def download_video(url: str) -> str:
