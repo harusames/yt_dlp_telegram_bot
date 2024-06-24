@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import os
+import tempfile
 from datetime import datetime
 
 from telegram import Update
@@ -14,10 +15,11 @@ WHITELIST_FILE = os.getenv('YT_DLP_TELEGRAM_BOT_WHITELIST_FILE')
 
 
 script_basename = os.path.basename(__file__)
+basename_root = os.path.splitext(script_basename)[0]
+videos_dir = os.path.join(tempfile.gettempdir(), basename_root)
 
 
 def setup_logger():
-    basename_root = os.path.splitext(script_basename)[0]
     timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     log_filename = os.path.join(LOGS, f'{basename_root}_{timestamp}.log')
 
@@ -43,10 +45,15 @@ def setup_logger():
     return logger
 
 
+def download_video(url: str) -> str:
+    return "/e/media/replies/Mike O'Hearn Original Meme Template for TikTok (What Is Love) [tRE_3jpBEo8].mp4"
+
+
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     trace_id = (str(update.message.date.astimezone()).split('+')[0], update.message.from_user.id)
     log.info(f'{trace_id} {update.message.from_user.first_name} wrote {update.message.text}')
-    await context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
+    video_path = download_video(update.message.text)
+    await context.bot.send_document(chat_id=update.effective_chat.id, document=open(video_path, 'rb'))
 
 
 log = setup_logger()
